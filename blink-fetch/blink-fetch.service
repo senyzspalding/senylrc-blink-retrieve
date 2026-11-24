@@ -1,0 +1,57 @@
+[Unit]
+# NOTE: placeholders (<user>, example.com addresses) -- edit before installing.
+Description=Blink camera clip fetcher (local storage / motion clips -> local disk)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<user>
+Group=<user>
+WorkingDirectory=/opt/blink-fetch
+Environment=BLINK_CREDENTIALS=/etc/blink-fetch/credentials.json
+Environment=BLINK_OUTPUT_DIR=/home/<user>/blink-clips
+Environment=BLINK_STATE_FILE=/var/lib/blink-fetch/state.json
+Environment=BLINK_POLL_SECONDS=120
+
+# Delete clips from the sync module's USB stick once they're older than
+# this many days AND already confirmed saved to BLINK_OUTPUT_DIR. Set to
+# 0 to leave the sync module alone entirely.
+Environment=BLINK_DELETE_OLDER_THAN_DAYS=14
+Environment=BLINK_CLEANUP_INTERVAL_HOURS=24
+
+# Alert if no clip from any camera lands within this many hours.
+Environment=BLINK_ALERT_HOURS=48
+Environment=BLINK_ALERT_REPEAT_HOURS=12
+
+# Email via the local postfix relay -- no auth needed for local submission.
+Environment=BLINK_ALERT_EMAIL_TO=alerts@example.com
+Environment=BLINK_ALERT_EMAIL_FROM=blink-fetch@example.com
+Environment=BLINK_SMTP_HOST=localhost
+Environment=BLINK_SMTP_PORT=25
+
+# Alert (same webhook/email above) if a camera's battery isn't reporting
+# "ok", re-sent at most this often per camera while it stays that way.
+Environment=BLINK_BATTERY_ALERT_REPEAT_HOURS=24
+
+# Local time zone for clip filenames and for deciding "business hours"
+# below. Shows EST/EDT automatically depending on the date.
+Environment=BLINK_TIMEZONE=America/New_York
+
+# Email/webhook-alert on every clip recorded on a weekend, or on a
+# weekday outside 7am-6pm local time.
+Environment=BLINK_AFTER_HOURS_ALERT=true
+Environment=BLINK_BUSINESS_START_HOUR=7
+Environment=BLINK_BUSINESS_END_HOUR=18
+
+ExecStart=/opt/blink-fetch/venv/bin/python3 /opt/blink-fetch/blink_fetch_daemon.py
+Restart=on-failure
+RestartSec=30
+
+# Light sandboxing; ProtectHome would also block /srv unless it's an
+# explicit ReadWritePaths entry, so we leave it off here for simplicity.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
