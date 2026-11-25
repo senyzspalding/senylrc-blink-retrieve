@@ -76,7 +76,7 @@ No other files are required. A `README-blink-fetch.md` was also produced during 
 | `BLINK_ALERT_EMAIL_TO` | unset | Recipient address. In the current deployment: `alerts@example.com`. |
 | `BLINK_ALERT_EMAIL_FROM` | `blink-fetch@localhost` | From address. Current deployment: `blink-fetch@example.com`. |
 | `BLINK_SMTP_HOST` / `BLINK_SMTP_PORT` | `localhost` / `587` | SMTP relay. Current deployment uses the server's local postfix on port `25`, no auth. |
-| `BLINK_SMTP_USER` / `BLINK_SMTP_PASS` | unset | Only needed if the relay requires auth. |
+| `BLINK_SMTP_USER` / `BLINK_SMTP_PASS` | unset | Only needed if the relay requires auth. When set, a certificate-verified STARTTLS session is required before login; if it fails, the email is not sent. |
 
 The daemon's own top-of-file docstring in `blink_fetch_daemon.py` is always the source of truth if this table and the code disagree.
 

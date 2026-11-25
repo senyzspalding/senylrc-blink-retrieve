@@ -77,6 +77,7 @@ import logging
 import os
 import re
 import smtplib
+import ssl
 import time
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
@@ -232,8 +233,11 @@ def send_webhook_alert(message: str):
 def send_email_alert(message: str, subject: str = "Blink alert"):
     """Email an alert to BLINK_ALERT_EMAIL_TO via the configured SMTP server.
 
-    Tries STARTTLS and falls back to plain delivery (typical for a local
-    postfix relay). Logs on failure instead of raising."""
+    With BLINK_SMTP_USER set, a certificate-verified STARTTLS session is
+    required before logging in; if it cannot be established the alert is not
+    sent, so credentials and alert text never cross the network in plaintext.
+    Without auth (typical local postfix relay), STARTTLS is tried and plain
+    delivery is used as a fallback. Logs on failure instead of raising."""
     if not ALERT_EMAIL_TO:
         return
     msg = MIMEText(message)
@@ -243,16 +247,22 @@ def send_email_alert(message: str, subject: str = "Blink alert"):
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
             smtp.ehlo()
-            try:
-                smtp.starttls()
-                smtp.ehlo()
-            except Exception:
-                # STARTTLS not offered, or a self-signed cert on a local
-                # relay -- fall back to plain delivery rather than
-                # aborting the whole alert.
-                pass
             if SMTP_USER:
+                # Never authenticate without verified TLS. Any failure here
+                # (no STARTTLS offered, bad/self-signed cert) raises and the
+                # alert is logged as failed instead of leaking credentials.
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.ehlo()
                 smtp.login(SMTP_USER, SMTP_PASS)
+            else:
+                try:
+                    smtp.starttls()
+                    smtp.ehlo()
+                except Exception:
+                    # STARTTLS not offered, or a self-signed cert on a local
+                    # relay -- no credentials are sent, so fall back to plain
+                    # delivery rather than aborting the whole alert.
+                    pass
             smtp.sendmail(ALERT_EMAIL_FROM, [ALERT_EMAIL_TO], msg.as_string())
     except Exception:
         log.exception("Failed to send alert email")
